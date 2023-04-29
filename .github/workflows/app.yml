@@ -1,0 +1,11 @@
+- name: Build Android App
+  uses: sparkfabrik/android-build-action@v1.4.0
+  with:
+    project-path: android
+    output-path: my-app.apk
+    browserstack-upload: true
+    browserstack-username: ${{ secrets.BROWSERSTACK_USERNAME }}
+    browserstack-access-key: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+    ruby-version: "2.7.5"
+    bundler-version: "2.3.26"
+    fastlane-env: "debug"
