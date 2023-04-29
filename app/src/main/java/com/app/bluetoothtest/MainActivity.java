@@ -7,10 +7,11 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import android.Manifest;
-import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothServerSocket;
+import android.bluetooth.BluetoothSocket;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -20,26 +21,33 @@ import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.speech.RecognizerIntent;
 import android.view.View;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
-import java.util.Set;
+import java.util.Locale;
 import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity {
 
     Button buttonON, showDevices;
+    ImageButton speak;
     ListView deviceList;
     TextView status;
     ArrayList<String> stringArrayList = new ArrayList<String>();
     ArrayAdapter<String> arrayAdapter;
     BluetoothAdapter bluetoothAdapter;
-    BluetoothDevice[] btArray;
+    BluetoothDevice[] btArray = new BluetoothDevice[100];
+    int index = 0;
     Intent btEnablingIntent;
     int requestCodeForEnable;
     private int BLUETOOTH_PERMISSION_CODE = 1;
@@ -50,7 +58,8 @@ public class MainActivity extends AppCompatActivity {
     static final int STATE_MESSAGE_RECEIVED = 5;
 
     private static final String APP_NAME = "BTTest";
-    private static final UUID MY_UUID = UUID.fromString("87e26ed2-ee0b-479b-8869-987cb10b78e8");
+    private static final UUID MY_UUID = UUID.fromString("00001101-0000-1000-8000-00805f9b34fb");
+    OutputStream outputStream;
     BroadcastReceiver receiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -59,6 +68,7 @@ public class MainActivity extends AppCompatActivity {
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
                 if (!stringArrayList.contains(device.getName())) {
                     stringArrayList.add(device.getName());
+                    btArray[index++] = device;
                 }
                 arrayAdapter.notifyDataSetChanged();
             }
@@ -86,6 +96,7 @@ public class MainActivity extends AppCompatActivity {
 
         buttonON = (Button) findViewById(R.id.btON);
         showDevices = (Button) findViewById(R.id.showDevices);
+        speak = (ImageButton) findViewById(R.id.speak);
         deviceList = (ListView) findViewById(R.id.deviceList);
         status = (TextView) findViewById(R.id.status);
         bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
@@ -97,6 +108,31 @@ public class MainActivity extends AppCompatActivity {
 
         bluetoothON();
         onClickShowDevices();
+        deviceClickListener();
+        onClickSpeak();
+    }
+
+    private void onClickSpeak() {
+        speak.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+                intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+                intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault());
+                intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "Start Speaking");
+                startActivityForResult(intent, 100);
+            }
+        });
+    }
+    private void deviceClickListener() {
+        deviceList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
+                ClientClass clientClass = new ClientClass(btArray[i]);
+                clientClass.start();
+                status.setText("Connecting");
+            }
+        });
     }
 
     Handler handler = new Handler(new Handler.Callback() {
@@ -150,13 +186,46 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        //super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == requestCodeForEnable) {
             if (resultCode == RESULT_OK) {
                 Toast.makeText(getApplicationContext(), "Bluetooth is Enabled", Toast.LENGTH_LONG).show();
             } else if (resultCode == RESULT_CANCELED) {
                 Toast.makeText(getApplicationContext(), "Bluetooth Enabling Cancelled", Toast.LENGTH_LONG).show();
             }
+        }
+
+        if(requestCode == 100 && resultCode == RESULT_OK) {
+            String command = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS).get(0);
+            encodeCommand(command);
+        }
+    }
+
+    private void encodeCommand(String command) {
+        status.setText(command);
+        String encodedCommand = "";
+        if(command.equalsIgnoreCase("fan off") || command.equalsIgnoreCase("fan of")) encodedCommand = "0";
+        else if(command.equalsIgnoreCase("fan on")) encodedCommand = "1";
+        else if(command.equalsIgnoreCase("light off") || command.equalsIgnoreCase("light of")) encodedCommand = "2";
+        else if(command.equalsIgnoreCase("light on")) encodedCommand = "3";
+        else if(command.equalsIgnoreCase("speed 1")) encodedCommand = "4";
+        else if(command.equalsIgnoreCase("speed 2")) encodedCommand = "5";
+        else if(command.equalsIgnoreCase("speed 3")) encodedCommand = "6";
+        else if(command.equalsIgnoreCase("speed 4")) encodedCommand = "7";
+        else if(command.equalsIgnoreCase("speed 5")) encodedCommand = "8";
+//        else if(command.equalsIgnoreCase("door open") || command.equalsIgnoreCase("doors open")) encodedCommand = "9";
+//        else if(command.equalsIgnoreCase("door close") || command.equalsIgnoreCase("doors close")) encodedCommand = "A";
+//        else if(command.equalsIgnoreCase("plug on")) encodedCommand = "B";
+//        else if(command.equalsIgnoreCase("plug off") || command.equalsIgnoreCase("plug of")) encodedCommand = "C";
+        else status.setText("Command not Recognized");
+        sendCommand(encodedCommand + "\r\n");
+    }
+
+    private void sendCommand(String command) {
+        try {
+            outputStream.write(command.getBytes());
+        }
+        catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
@@ -165,7 +234,6 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
-                    //Toast.makeText(MainActivity.this, "You have already granted this permission", Toast.LENGTH_LONG).show();
                     bluetoothTurnON();
                 } else {
                     requestBluetoothConnectPermission();
@@ -180,7 +248,6 @@ public class MainActivity extends AppCompatActivity {
         } else {
             if (!bluetoothAdapter.isEnabled()) {
                 startActivityForResult(btEnablingIntent, requestCodeForEnable);
-                //bluetoothAdapter.enable();
             }
         }
     }
@@ -220,5 +287,37 @@ public class MainActivity extends AppCompatActivity {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.BLUETOOTH_SCAN}, BLUETOOTH_PERMISSION_CODE);
         }
     }
-}
 
+    private class ClientClass extends Thread {
+        private BluetoothDevice device;
+        private BluetoothSocket socket;
+
+        public ClientClass(BluetoothDevice device1) {
+            device = device1;
+
+            try {
+                socket = device.createRfcommSocketToServiceRecord(MY_UUID);
+            }
+            catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        public void run() {
+            try {
+                bluetoothAdapter.cancelDiscovery();
+                socket.connect();
+                outputStream = socket.getOutputStream();
+                Message message = Message.obtain();
+                message.what = STATE_CONNECTED;
+                handler.sendMessage(message);
+            }
+            catch (IOException e) {
+                e.printStackTrace();
+                Message message = Message.obtain();
+                message.what = STATE_CONNECTION_FAILED;
+                handler.sendMessage(message);
+            }
+        }
+    }
+}
