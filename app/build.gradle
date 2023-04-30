@@ -3,11 +3,11 @@ plugins {
 }
 
 android {
-    namespace 'com.app.bluetoothtest'
+    namespace 'com.app.voice_control_home_auto'
     compileSdk 33
 
     defaultConfig {
-        applicationId "com.app.bluetoothtest"
+        applicationId "com.app.voice_control_home_auto"
         minSdk 24
         targetSdk 33
         versionCode 1
@@ -20,6 +20,7 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.debug
         }
     }
     compileOptions {

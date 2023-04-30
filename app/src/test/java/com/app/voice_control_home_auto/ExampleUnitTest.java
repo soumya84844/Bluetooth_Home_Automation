@@ -1,4 +1,4 @@
-package com.app.bluetoothtest;
+package com.app.voice_control_home_auto;
 
 import org.junit.Test;
 

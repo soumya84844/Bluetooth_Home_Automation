@@ -1,16 +1,9 @@
-package com.app.bluetoothtest;
-
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
+package com.app.voice_control_home_auto;
 
 import android.Manifest;
 import android.app.AlertDialog;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -30,6 +23,12 @@ import android.widget.ImageButton;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -66,11 +65,16 @@ public class MainActivity extends AppCompatActivity {
             String action = intent.getAction();
             if (BluetoothDevice.ACTION_FOUND.equals(action)) {
                 BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-                if (!stringArrayList.contains(device.getName())) {
-                    stringArrayList.add(device.getName());
-                    btArray[index++] = device;
+                try {
+                    if (!stringArrayList.contains(device.getName())) {
+                        stringArrayList.add(device.getName());
+                        btArray[index++] = device;
+                    }
+                    arrayAdapter.notifyDataSetChanged();
                 }
-                arrayAdapter.notifyDataSetChanged();
+                catch (Exception e) {
+                    e.printStackTrace();
+                }
             }
         }
     };
@@ -204,18 +208,17 @@ public class MainActivity extends AppCompatActivity {
         status.setText(command);
         String encodedCommand = "";
         if(command.equalsIgnoreCase("fan off") || command.equalsIgnoreCase("fan of")) encodedCommand = "0";
-        else if(command.equalsIgnoreCase("fan on")) encodedCommand = "1";
+        else if(command.equalsIgnoreCase("fan on") || command.equalsIgnoreCase("speed 5")) encodedCommand = "1";
         else if(command.equalsIgnoreCase("light off") || command.equalsIgnoreCase("light of")) encodedCommand = "2";
         else if(command.equalsIgnoreCase("light on")) encodedCommand = "3";
         else if(command.equalsIgnoreCase("speed 1")) encodedCommand = "4";
         else if(command.equalsIgnoreCase("speed 2")) encodedCommand = "5";
         else if(command.equalsIgnoreCase("speed 3")) encodedCommand = "6";
         else if(command.equalsIgnoreCase("speed 4")) encodedCommand = "7";
-        else if(command.equalsIgnoreCase("speed 5")) encodedCommand = "8";
-//        else if(command.equalsIgnoreCase("door open") || command.equalsIgnoreCase("doors open")) encodedCommand = "9";
-//        else if(command.equalsIgnoreCase("door close") || command.equalsIgnoreCase("doors close")) encodedCommand = "A";
-//        else if(command.equalsIgnoreCase("plug on")) encodedCommand = "B";
-//        else if(command.equalsIgnoreCase("plug off") || command.equalsIgnoreCase("plug of")) encodedCommand = "C";
+        else if(command.equalsIgnoreCase("door open") || command.equalsIgnoreCase("doors open")) encodedCommand = "8";
+        else if(command.equalsIgnoreCase("door close") || command.equalsIgnoreCase("doors close")) encodedCommand = "9";
+        else if(command.equalsIgnoreCase("plug on")) encodedCommand = "A";
+        else if(command.equalsIgnoreCase("plug off") || command.equalsIgnoreCase("plug of")) encodedCommand = "B";
         else status.setText("Command not Recognized");
         sendCommand(encodedCommand + "\r\n");
     }
